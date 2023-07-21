@@ -10,6 +10,8 @@ import random
 from collections import deque
 
 import numpy as np
+
+from mcts_new import MCTS
 from p_v_net import PolicyValueNet  # Theano and Lasagne
 # from policy_value_net_pytorch import PolicyValueNet  # Pytorch
 # from policy_value_net_tensorflow import PolicyValueNet # Tensorflow
@@ -43,3 +45,4 @@ class TrainPipeline():
 if __name__ == '__main__':
     training_pipeline = TrainPipeline()
     policy_value_net = PolicyValueNet()
+    mcts= MCTS(training_pipeline,policy_value_net.policy_value,5,400)
