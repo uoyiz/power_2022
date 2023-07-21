@@ -118,3 +118,47 @@ def softmax(x):
     probs = np.exp(x - np.max(x))
     probs /= np.sum(probs)
     return probs
+
+
+class BatchBuffer:
+    def __init__(self, config):
+        self.config = config
+        # self.size = config.batch_size
+        self.size = config.memory_capacity
+        self.device = config.device
+        # config all training data
+        self.all_obs = []
+        self.all_actions_probs = []
+        self.all_rewards = []
+        # pointer
+        self.step = 0
+
+    def get_buffer_size(self):
+        return len(self.all_obs)
+
+    def insert_all_data(self, all_states, all_actions_probs, all_rewards):
+        for state, action_prob, reward in zip(all_states, all_actions_probs, all_rewards):
+            if len(self.all_obs) >= self.size:
+                self.all_obs[self.step] = state
+                self.all_actions_probs[self.step] = action_prob
+                self.all_rewards[self.step] = reward
+                self.step = (self.step + 1) % self.size
+            else:
+                self.all_obs.append(state)
+                self.all_actions_probs.append(action_prob)
+                self.all_rewards.append(reward)
+
+    def sample(self, batch_size):
+        idxes = np.random.choice(len(self.all_obs), batch_size, replace=False)
+        # split all obs into different types
+        batch_states = torch.from_numpy(np.array(
+            [self.all_obs[i] for i in idxes])).to(dtype=torch.float32, device=self.device)
+        # actions_probs, rewards
+        batch_actions_probs = torch.cat([
+            torch.from_numpy(np.array(self.all_actions_probs[i])).unsqueeze(0) for i in idxes
+        ], dim=0).to(device=self.device)
+        batch_rewards = torch.cat([
+            torch.from_numpy(np.array(self.all_rewards[i])).unsqueeze(0) for i in idxes
+        ], dim=0).to(dtype=torch.float32, device=self.device).unsqueeze(-1)
+
+        return batch_states, batch_actions_probs, batch_rewards

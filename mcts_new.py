@@ -10,10 +10,10 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from tensorboardX import SummaryWriter
-from utils.replay_buffer import BatchBuffer
+# from utils.replay_buffer import BatchBuffer
 # from model.mcts_model.policy_value_net import PolicyValueNet
 # from model.attention_model.hierarchy_actor_critic import Hierarchy_Actor, Critic
-from utils.utils import eliminate_orphan_node, load_graph, load_all_graphs, softmax, process_step_reward, choose_graph_from_list
+from utils import eliminate_orphan_node, load_graph, load_all_graphs, softmax, process_step_reward, choose_graph_from_list
 
 from p_v_net import PolicyValueNet
 
@@ -318,8 +318,8 @@ class MCTSAgent():
             # perform a remove action
             state, reward, done, info = self.env.step(action)
             # store the data
-            all_rewards.append(process_step_reward(
-                reward, state['origin_num_nodes'], reward_reflect=True, reward_normalization=False, multi_step=False))
+            all_rewards.append(
+                reward)
             train_episode_reward += reward
             if done:
                 # reset MCTS root node
