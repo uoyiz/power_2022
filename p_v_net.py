@@ -12,9 +12,11 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 import numpy as np
 
-from policy_value_net_pytorch import set_learning_rate
 
-
+def set_learning_rate(optimizer, lr):
+    """Sets the learning rate to the given value"""
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
 class PVNet(nn.Model):
     def __init__(self):
         super(PVNet, self).__init__()
