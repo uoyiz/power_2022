@@ -10,7 +10,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from tensorboardX import SummaryWriter
-# from utils.replay_buffer import BatchBuffer
+from utils import BatchBuffer
 # from model.mcts_model.policy_value_net import PolicyValueNet
 # from model.attention_model.hierarchy_actor_critic import Hierarchy_Actor, Critic
 from utils import eliminate_orphan_node, load_graph, load_all_graphs, softmax, process_step_reward, choose_graph_from_list
@@ -224,7 +224,7 @@ class MCTSAgent():
         # load graph from saved data
         # self.graph = load_graph(self.config.train_graph_path) if self.config.train_with_preload_graph else None
         # self.graphs = load_all_graphs(self.config.train_graph_path) if self.config.train_with_preload_graph else None
-        self.config.preload_graph_node_num = len(self.graphs[0].nodes())
+        # self.config.preload_graph_node_num = len(self.graphs[0].nodes())
         # config data buffer
         self.data_buffer = BatchBuffer(config=config)
         # config for record

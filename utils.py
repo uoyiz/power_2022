@@ -123,8 +123,8 @@ def softmax(x):
 class BatchBuffer:
     def __init__(self, config):
         self.config = config
-        # self.size = config.batch_size
-        self.size = config.memory_capacity
+        self.size = config.batch_size
+        # self.size = config.memory_capacity
         self.device = config.device
         # config all training data
         self.all_obs = []
