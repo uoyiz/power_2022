@@ -43,4 +43,3 @@ class TrainPipeline():
 if __name__ == '__main__':
     training_pipeline = TrainPipeline()
     policy_value_net = PolicyValueNet()
-    mcts= MCTSPlayer(training_pipeline,policy_value_net.policy_value,5,400)
