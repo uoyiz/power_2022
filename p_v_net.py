@@ -76,7 +76,10 @@ class PolicyValueNet():
         self.use_gpu = False
         self.l2_const = 1e-4  # coef of l2 penalty
         # the policy value net module
-        self.policy_value_net = PVNet().cuda()
+        if use_gpu:
+            self.policy_value_net = PVNet().cuda()
+        else:
+            self.policy_value_net = PVNet()
         self.optimizer = optim.Adam(self.policy_value_net.parameters(),
                                     weight_decay=self.l2_const)
         if model_file:
