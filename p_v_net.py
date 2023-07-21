@@ -17,7 +17,7 @@ def set_learning_rate(optimizer, lr):
     """Sets the learning rate to the given value"""
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
-class PVNet(nn.Model):
+class PVNet(nn.Module):
     def __init__(self):
         super(PVNet, self).__init__()
         n_cell = 1000
