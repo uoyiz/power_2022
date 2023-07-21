@@ -13,7 +13,7 @@ from p_v_net import PolicyValueNet  # Theano and Lasagne
 # from policy_value_net_tensorflow import PolicyValueNet # Tensorflow
 # from policy_value_net_keras import PolicyValueNet # Keras
 from collections import deque
-from mcts_new import MCTS
+from mcts_new import MCTS, MCTSAgent
 import grid2op
 
 

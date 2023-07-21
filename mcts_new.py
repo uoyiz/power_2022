@@ -223,7 +223,7 @@ class MCTSAgent():
         self.env = env
         # load graph from saved data
         # self.graph = load_graph(self.config.train_graph_path) if self.config.train_with_preload_graph else None
-        self.graphs = load_all_graphs(self.config.train_graph_path) if self.config.train_with_preload_graph else None
+        # self.graphs = load_all_graphs(self.config.train_graph_path) if self.config.train_with_preload_graph else None
         self.config.preload_graph_node_num = len(self.graphs[0].nodes())
         # config data buffer
         self.data_buffer = BatchBuffer(config=config)
