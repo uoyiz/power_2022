@@ -7,15 +7,14 @@ An implementation of the training pipeline of AlphaZero for Gomoku
 
 from __future__ import print_function
 import random
-from collections import deque
-
 import numpy as np
-
-from mcts_new import MCTS
 from p_v_net import PolicyValueNet  # Theano and Lasagne
 # from policy_value_net_pytorch import PolicyValueNet  # Pytorch
 # from policy_value_net_tensorflow import PolicyValueNet # Tensorflow
 # from policy_value_net_keras import PolicyValueNet # Keras
+from collections import deque
+from mcts_new import MCTS
+import grid2op
 
 
 class TrainPipeline():
@@ -41,8 +40,16 @@ class TrainPipeline():
         self.pure_mcts_playout_num = 1000
 
 
-
 if __name__ == '__main__':
     training_pipeline = TrainPipeline()
     policy_value_net = PolicyValueNet()
-    mcts= MCTS(training_pipeline,policy_value_net.policy_value,5,400)
+    try:
+        # if lightsim2grid is available, use it.
+        from lightsim2grid import LightSimBackend
+
+        backend = LightSimBackend()
+        env = grid2op.make(dataset="l2rpn_wcci_2022", backend=backend)
+    except:
+        env = grid2op.make(dataset="l2rpn_wcci_2022")
+    agent = MCTSAgent(training_pipeline, env)
+

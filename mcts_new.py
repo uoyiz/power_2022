@@ -15,6 +15,8 @@ from utils.replay_buffer import BatchBuffer
 # from model.attention_model.hierarchy_actor_critic import Hierarchy_Actor, Critic
 from utils.utils import eliminate_orphan_node, load_graph, load_all_graphs, softmax, process_step_reward, choose_graph_from_list
 
+from p_v_net import PolicyValueNet
+
 
 class MinMaxStats:
     """A class that holds the min-max values of the tree."""
