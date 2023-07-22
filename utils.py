@@ -125,7 +125,7 @@ class BatchBuffer:
         self.config = config
         self.size = config.batch_size
         # self.size = config.memory_capacity
-        self.device = config.device
+        # self.device = config.device
         # config all training data
         self.all_obs = []
         self.all_actions_probs = []

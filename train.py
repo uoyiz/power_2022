@@ -38,6 +38,8 @@ class TrainPipeline():
         # num of simulations used for the pure mcts, which is used as
         # the opponent to evaluate the trained policy
         self.pure_mcts_playout_num = 1000
+        self.output_res_dir="./"
+        self.output_res=True
 
 
 if __name__ == '__main__':
