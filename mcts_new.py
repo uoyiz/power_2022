@@ -240,7 +240,7 @@ class MCTSAgent():
         if self.config.output_res:
             self.writter = SummaryWriter(self.save_res_dir)
         # config policy value network and optim
-        self.policy_value_net = PolicyValueNet(config=config)
+        self.policy_value_net = PolicyValueNet()
         self.optimizer = optim.Adam(self.policy_value_net.parameters(), weight_decay=config.mcts_l2_const)
         # config for lr decay
         self.lr_multiplier = config.mcts_lr_multiplier
