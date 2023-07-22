@@ -13,7 +13,8 @@ from tensorboardX import SummaryWriter
 from utils import BatchBuffer
 # from model.mcts_model.policy_value_net import PolicyValueNet
 # from model.attention_model.hierarchy_actor_critic import Hierarchy_Actor, Critic
-from utils import eliminate_orphan_node, load_graph, load_all_graphs, softmax, process_step_reward, choose_graph_from_list
+from utils import eliminate_orphan_node, load_graph, load_all_graphs, softmax, process_step_reward, \
+    choose_graph_from_list
 
 from p_v_net import PolicyValueNet
 
@@ -27,7 +28,6 @@ def reconnect_array(obs):
             new_line_status_array[line_to_reconnect] = 1
             break
     return new_line_status_array
-
 
 
 def array2action(env, total_array, reconnect_array=None):
@@ -73,7 +73,7 @@ class TreeNode(object):
         self._P = prior_p
         self._R = 0
 
-    def expand(self, actions,probs, reward, done):
+    def expand(self, actions, probs, reward, done):
         """Expand tree by creating new children.
         action_priors: a list of tuples of actions and their prior probability
             according to the policy function.
@@ -85,7 +85,7 @@ class TreeNode(object):
         #             self._children[action] = TreeNode(self, prob)
         # record node reward either at terminal or not
         # print(probs.shape)
-        probs=probs.tolist()
+        probs = probs.tolist()
         if not done:
             for i in range(len(probs)):
                 if i not in self._children:
@@ -160,6 +160,7 @@ class MCTS(object):
             converges to the maximum-value policy. A higher value means
             relying on the prior more.
         """
+        self.actions = np.load("actions_space.npz")["action_space"]
         self.config = config
         self._root = TreeNode(None, 1.0)
         self._policy = policy_value_fn
@@ -167,8 +168,6 @@ class MCTS(object):
         self._n_playout = n_playout
         ################# add config for dense reward mcts
         self.gamma = gamma
-
-
 
     def _playout(self, state, reward, done, env, min_max_stats):
         """Run a single playout from the root to the leaf, getting a value at
@@ -182,18 +181,22 @@ class MCTS(object):
             # Greedily select next move.
             # action, node = node.select(self._c_puct)
             action, node = self.my_select_child(node, min_max_stats)
-            action_array = array2action(env,self.actions[action][0]) if action is not None else self.array2action(env,
-                np.zeros(494), self.reconnect_array(state))
-            state, reward, done, info = env.step(action)
+
+            action_array = array2action(env, self.actions[action]) if action is not None else array2action(env,
+                                                                                                           np.zeros(
+                                                                                                               494),
+                                                                                                           self.reconnect_array(
+                                                                                                               state))
+            state, reward, done, info = env.step(action_array)
         # Evaluate the leaf using a network which outputs a list of
         # (action, probability) tuples p and also a score v
         # for the current player.
-        actions,action_probs, leaf_value = self._policy(state)
+        actions, action_probs, leaf_value = self._policy(state)
         # change last node value to value predict if not reach the leaf node
         leaf_value = 0.0 if done else leaf_value
         # and then expand child tree
-        node.expand(actions,action_probs, reward=
-            reward,done=done)
+        node.expand(actions, action_probs, reward=
+        reward, done=done)
         # Update value and visit count of nodes in this traversal.
         node.update_dense_recursive(leaf_value, self.gamma, min_max_stats)
 
@@ -244,8 +247,6 @@ class MCTS(object):
 
         return max(node._children.items(), key=lambda act_node: my_get_ucb(act_node[1]))
 
-
-
     def __str__(self):
         return "MCTS"
 
@@ -274,7 +275,8 @@ class MCTSAgent():
             self.writter = SummaryWriter(self.save_res_dir)
         # config policy value network and optim
         self.policy_value_net = PolicyValueNet()
-        self.optimizer = optim.Adam(self.policy_value_net.policy_value_net.parameters(), weight_decay=config.mcts_l2_const)
+        self.optimizer = optim.Adam(self.policy_value_net.policy_value_net.parameters(),
+                                    weight_decay=config.mcts_l2_const)
         # config for lr decay
         self.lr_multiplier = config.mcts_lr_multiplier
         self.kl_targ = config.mcts_kl_targ
@@ -284,7 +286,7 @@ class MCTSAgent():
                          discount=config.mcts_discount_tree_value)
         # normal value to calculate ucb if necessary
         self.min_max_stats = None
-        self.actions=np.load('actions_space.npz')
+        self.actions = self.mcts.actions
 
     def save_model(self, training_episode):
         torch.save({
@@ -350,7 +352,8 @@ class MCTSAgent():
             all_states.append(state)
             actions_probs.append(action_probs)
             # perform a remove action
-            action_array = array2action(self.env,self.actions[action][0]) if action is not None else array2action(self.env,np.zeros(494),self.reconnect_array(state)) # action is None means no available nodes
+            action_array = array2action(self.env, self.actions[action]) if action is not None else array2action(
+                self.env, np.zeros(494), self.reconnect_array(state))  # action is None means no available nodes
             state, reward, done, info = self.env.step(action_array)
             # store the data
             all_rewards.append(
@@ -393,6 +396,7 @@ class MCTSAgent():
             all_train_episode_reward.append(train_episode_reward)
         # print('train_episode_reward', np.mean(all_train_episode_reward))
         return np.mean(all_train_episode_reward)
+
     ##################### method for play game
 
     def policy_evaluate(self, n_games=10):
@@ -456,7 +460,7 @@ class MCTSAgent():
         return np.mean(all_value_loss), np.mean(all_policy_loss), np.mean(all_entropy)
 
     def train(self):
-        self. min_max_stats = MinMaxStats()
+        self.min_max_stats = MinMaxStats()
         ###################### load model
         if self.config.load_model:
             self.load_model()
