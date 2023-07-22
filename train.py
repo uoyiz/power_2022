@@ -83,6 +83,25 @@ class TrainPipeline():
 if __name__ == "__main__":
     # set program config
     config = parser.parse_args()
+    config.learn_rate = 2e-3
+    config.lr_multiplier = 1.0  # adaptively adjust the learning rate based on KL
+    config.temp = 1.0  # the temperature param
+    config.n_playout = 400  # num of simulations for each move
+    config.c_puct = 5
+    config.buffer_size = 10000
+    config.batch_size = 512  # mini-batch size for training
+    config.data_buffer = deque(maxlen=config.buffer_size)
+    config.play_batch_size = 1
+    config.epochs = 5  # num of train_steps for each update
+    config.kl_targ = 0.02
+    config.check_freq = 50
+    config.game_batch_num = 1500
+    config.best_win_ratio = 0.0
+    # num of simulations used for the pure mcts, which is used as
+    # the opponent to evaluate the trained policy
+    config.pure_mcts_playout_num = 1000
+    config.output_res_dir = "./"
+    config.output_res = True
     #################### train config for mcts train
     # config.algorithm_name = 'mcts-multi'
     # config.preload_graph_node_num = 50
@@ -141,8 +160,7 @@ if __name__ == "__main__":
     config.device = 'cpu' if not torch.cuda.is_available() else 'cuda'
     # sey env for training
     env = grid2op.make(dataset="l2rpn_wcci_2022")
-    # set config from env
-    get_config_from_env(config, env)
+
     # set agent
     agent = MCTSAgent(config=config, env=env)
     agent.train()
