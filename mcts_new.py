@@ -18,6 +18,27 @@ from utils import eliminate_orphan_node, load_graph, load_all_graphs, softmax, p
 from p_v_net import PolicyValueNet
 
 
+def reconnect_array(obs):
+    new_line_status_array = np.zeros_like(obs.rho)
+    disconnected_lines = np.where(obs.line_status == False)[0]
+    for line in disconnected_lines[::-1]:
+        if not obs.time_before_cooldown_line[line]:
+            line_to_reconnect = line  # reconnection
+            new_line_status_array[line_to_reconnect] = 1
+            break
+    return new_line_status_array
+
+
+
+def array2action(env, total_array, reconnect_array=None):
+    action = env.action_space[0]({'change_bus': total_array[236:413]})
+    action._change_bus_vect = action._change_bus_vect.astype(bool)
+    if reconnect_array is None:
+        return action
+    action.update({'set_line_status': reconnect_array})
+    return action
+
+
 class MinMaxStats:
     """A class that holds the min-max values of the tree."""
 
@@ -63,10 +84,12 @@ class TreeNode(object):
         #         if action not in self._children:
         #             self._children[action] = TreeNode(self, prob)
         # record node reward either at terminal or not
+        # print(probs.shape)
+        probs=probs.tolist()
         if not done:
-            for action, prob in zip(actions, probs):
-                if action not in self._children:
-                    self._children[action] = TreeNode(self, prob)
+            for i in range(len(probs)):
+                if i not in self._children:
+                    self._children[i] = TreeNode(self, probs[i])
         self._R = reward
 
     def select(self, c_puct):
@@ -144,7 +167,6 @@ class MCTS(object):
         self._n_playout = n_playout
         ################# add config for dense reward mcts
         self.gamma = gamma
-        self.aspace = self.env.action_space[0]
 
 
 
@@ -160,6 +182,8 @@ class MCTS(object):
             # Greedily select next move.
             # action, node = node.select(self._c_puct)
             action, node = self.my_select_child(node, min_max_stats)
+            action_array = array2action(env,self.actions[action][0]) if action is not None else self.array2action(env,
+                np.zeros(494), self.reconnect_array(state))
             state, reward, done, info = env.step(action)
         # Evaluate the leaf using a network which outputs a list of
         # (action, probability) tuples p and also a score v
@@ -168,7 +192,7 @@ class MCTS(object):
         # change last node value to value predict if not reach the leaf node
         leaf_value = 0.0 if done else leaf_value
         # and then expand child tree
-        node.expand(action_priors=action_probs, reward=
+        node.expand(actions,action_probs, reward=
             reward,done=done)
         # Update value and visit count of nodes in this traversal.
         node.update_dense_recursive(leaf_value, self.gamma, min_max_stats)
@@ -220,6 +244,8 @@ class MCTS(object):
 
         return max(node._children.items(), key=lambda act_node: my_get_ucb(act_node[1]))
 
+
+
     def __str__(self):
         return "MCTS"
 
@@ -258,7 +284,7 @@ class MCTSAgent():
                          discount=config.mcts_discount_tree_value)
         # normal value to calculate ucb if necessary
         self.min_max_stats = None
-        self.actions=np.load('actions.npz')
+        self.actions=np.load('actions_space.npz')
 
     def save_model(self, training_episode):
         torch.save({
@@ -319,12 +345,12 @@ class MCTSAgent():
         while True:
             action, action_probs = self.get_action(state, reward, done, test_mode=False, init_state=init_state)
             init_state = False
-            # print('action', action)
+            print('action', action)
             # store the data
             all_states.append(state)
             actions_probs.append(action_probs)
             # perform a remove action
-            action_array = self.array2action(self.actions[action][0]) if action is not None else self.array2action(np.zeros(494),self.reconnect_array(state)) # action is None means no available nodes
+            action_array = array2action(self.env,self.actions[action][0]) if action is not None else array2action(self.env,np.zeros(494),self.reconnect_array(state)) # action is None means no available nodes
             state, reward, done, info = self.env.step(action_array)
             # store the data
             all_rewards.append(
@@ -483,22 +509,3 @@ class MCTSAgent():
                 print('episode_reward', episode_reward)
                 return episode_reward
 
-    @staticmethod
-    def reconnect_array(obs):
-        new_line_status_array = np.zeros_like(obs.rho)
-        disconnected_lines = np.where(obs.line_status == False)[0]
-        for line in disconnected_lines[::-1]:
-            if not obs.time_before_cooldown_line[line]:
-                line_to_reconnect = line  # reconnection
-                new_line_status_array[line_to_reconnect] = 1
-                break
-        return new_line_status_array
-
-    @staticmethod
-    def array2action(env, total_array, reconnect_array=None):
-        action = env.action_space[0]({'change_bus': total_array[236:413]})
-        action._change_bus_vect = action._change_bus_vect.astype(bool)
-        if reconnect_array is None:
-            return action
-        action.update({'set_line_status': reconnect_array})
-        return action

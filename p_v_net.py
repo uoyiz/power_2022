@@ -20,7 +20,7 @@ def set_learning_rate(optimizer, lr):
 class PVNet(nn.Module):
     def __init__(self):
         super(PVNet, self).__init__()
-        n_cell = 1000
+        n_cell = 1221
         initializer = torch.nn.init.orthogonal_
 
         self.layer1 = nn.Linear(in_features=n_cell, out_features=n_cell)
@@ -39,10 +39,10 @@ class PVNet(nn.Module):
         initializer(self.layer4.weight)
         self.layer4.activation = nn.ReLU()
 
-        self.act_layer = nn.Linear(in_features=n_cell, out_features=208)
+        self.act_layer = nn.Linear(in_features=n_cell, out_features=314)
         initializer(self.act_layer.weight)
 
-        self.val_hidden_layer = nn.Linear(in_features=208, out_features=64)
+        self.val_hidden_layer = nn.Linear(in_features=n_cell, out_features=64)
         initializer(self.val_hidden_layer.weight)
         self.val_hidden_layer.activation = nn.ReLU()
 
@@ -63,8 +63,7 @@ class PVNet(nn.Module):
         a = torch.argmax(l - torch.log(-torch.log(u)), dim=-1)
         a_one_hot = F.one_hot(a, num_classes=l.size(-1))  # important!
         neg_log_p = F.cross_entropy(l, a, reduction='none')  # calculate -log(pi)
-        v = v.squeeze(dim=1)
-        return a, v, neg_log_p, l
+        return a, v, p, l
 
 
 class PolicyValueNet():
