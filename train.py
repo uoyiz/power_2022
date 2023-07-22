@@ -7,7 +7,7 @@ An implementation of the training pipeline of AlphaZero for Gomoku
 
 from __future__ import print_function
 
-import parser
+
 import random
 import numpy as np
 from p_v_net import PolicyValueNet  # Theano and Lasagne
@@ -21,6 +21,9 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from utils import set_seed, get_config_from_env
 
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
+parser = argparse.ArgumentParser(description='onpolicy', formatter_class=argparse.RawDescriptionHelpFormatter)
+############################# algorithm config
 parser.add_argument("--total_training_steps", type=int, default=20000)
 parser.add_argument('--gcn_hidden_size', default=64, type=int, help='Number of features for each node')
 parser.add_argument('--gcn_dropout', default=0.1, type=float, help='Drop out rate for gcn layers')
