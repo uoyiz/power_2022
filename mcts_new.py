@@ -147,6 +147,7 @@ class MCTS(object):
         self.aspace = self.env.action_space[0]
 
 
+
     def _playout(self, state, reward, done, env, min_max_stats):
         """Run a single playout from the root to the leaf, getting a value at
         the leaf and propagating it back through its parents.
@@ -493,8 +494,9 @@ class MCTSAgent():
                 break
         return new_line_status_array
 
-    def array2action(self, total_array, reconnect_array=None):
-        action = self.aspace({'change_bus': total_array[236:413]})
+    @staticmethod
+    def array2action(env, total_array, reconnect_array=None):
+        action = env.action_space[0]({'change_bus': total_array[236:413]})
         action._change_bus_vect = action._change_bus_vect.astype(bool)
         if reconnect_array is None:
             return action
