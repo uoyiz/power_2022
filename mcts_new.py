@@ -239,7 +239,6 @@ class MCTS(object):
                 (sub_node._parent._n_visits + self.config.mcts_c_puct_base + 1) / self.config.mcts_c_puct_base
             ) + self.config.mcts_c_puct_init
             _c_puct *= math.sqrt(sub_node._parent._n_visits) / (sub_node._n_visits + 1)
-            _c_puct = _c_puct * sub_node._P if self.config.mcts_dynamic_c_puct else self._c_puct
             sub_node._U = (_c_puct * sub_node._P *
                            np.sqrt(sub_node._parent._n_visits) / (1 + sub_node._n_visits))
 
