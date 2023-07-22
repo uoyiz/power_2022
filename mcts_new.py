@@ -52,17 +52,21 @@ class TreeNode(object):
         self._P = prior_p
         self._R = 0
 
-    def expand(self, action_priors, reward, done):
+    def expand(self, actions,probs, reward, done):
         """Expand tree by creating new children.
         action_priors: a list of tuples of actions and their prior probability
             according to the policy function.
         """
         # expnad node if not at termial state
+        # if not done:
+        #     for action, prob in action_priors:
+        #         if action not in self._children:
+        #             self._children[action] = TreeNode(self, prob)
+        # record node reward either at terminal or not
         if not done:
-            for action, prob in action_priors:
+            for action, prob in zip(actions, probs):
                 if action not in self._children:
                     self._children[action] = TreeNode(self, prob)
-        # record node reward either at terminal or not
         self._R = reward
 
     def select(self, c_puct):
@@ -140,6 +144,8 @@ class MCTS(object):
         self._n_playout = n_playout
         ################# add config for dense reward mcts
         self.gamma = gamma
+        self.aspace = self.env.action_space[0]
+
 
     def _playout(self, state, reward, done, env, min_max_stats):
         """Run a single playout from the root to the leaf, getting a value at
@@ -157,12 +163,12 @@ class MCTS(object):
         # Evaluate the leaf using a network which outputs a list of
         # (action, probability) tuples p and also a score v
         # for the current player.
-        action_probs, leaf_value = self._policy(state)
+        actions,action_probs, leaf_value = self._policy(state)
         # change last node value to value predict if not reach the leaf node
         leaf_value = 0.0 if done else leaf_value
         # and then expand child tree
         node.expand(action_priors=action_probs, reward=
-            reward)
+            reward,done=done)
         # Update value and visit count of nodes in this traversal.
         node.update_dense_recursive(leaf_value, self.gamma, min_max_stats)
 
@@ -241,16 +247,17 @@ class MCTSAgent():
             self.writter = SummaryWriter(self.save_res_dir)
         # config policy value network and optim
         self.policy_value_net = PolicyValueNet()
-        self.optimizer = optim.Adam(self.policy_value_net.parameters(), weight_decay=config.mcts_l2_const)
+        self.optimizer = optim.Adam(self.policy_value_net.policy_value_net.parameters(), weight_decay=config.mcts_l2_const)
         # config for lr decay
         self.lr_multiplier = config.mcts_lr_multiplier
         self.kl_targ = config.mcts_kl_targ
         # config mcts process
-        self.mcts = MCTS(config, self.policy_value_net.policy_value_fn, c_puct=config.mcts_c_puct,
+        self.mcts = MCTS(config, self.policy_value_net.policy_value, c_puct=config.mcts_c_puct,
                          n_playout=config.mcts_n_playout, gamma=config.reward_gamma,
                          discount=config.mcts_discount_tree_value)
         # normal value to calculate ucb if necessary
         self.min_max_stats = None
+        self.actions=np.load('actions.npz')
 
     def save_model(self, training_episode):
         torch.save({
@@ -269,10 +276,10 @@ class MCTSAgent():
 
     ##################### method for play game
     def get_action(self, state, reward, done, test_mode=False, init_state=False):
-        available_nodes = state['available_nodes']
+        # available_nodes = state['available_nodes']
         # the pi vector returned by MCTS as in the alphaGo Zero paper
-        move_probs = np.zeros(self.config.preload_graph_node_num)
-        if len(available_nodes) > 0:
+        move_probs = np.zeros(314)
+        if True:
             acts, probs = self.mcts.get_move_probs(
                 state, reward, done, env=self.env, min_max_stats=self.min_max_stats,
                 temp=self.config.mcts_temperature if not test_mode else 1e-3,
@@ -304,7 +311,7 @@ class MCTSAgent():
         """ start a self-play game using a MCTS player, reuse the search tree,
         and store the self-play data: (state, mcts_probs, z) for training
         """
-        state, reward, done = self.env.reset(choose_graph_from_list(self.graphs)), 0.0, False
+        state, reward, done = self.env.reset(), 0.0, False
         all_states, actions_probs, all_rewards = [], [], []
         train_episode_reward = 0.0
         init_state = True
@@ -316,7 +323,8 @@ class MCTSAgent():
             all_states.append(state)
             actions_probs.append(action_probs)
             # perform a remove action
-            state, reward, done, info = self.env.step(action)
+            action_array = self.array2action(self.actions[action][0]) if action is not None else self.array2action(np.zeros(494),self.reconnect_array(state)) # action is None means no available nodes
+            state, reward, done, info = self.env.step(action_array)
             # store the data
             all_rewards.append(
                 reward)
@@ -473,3 +481,22 @@ class MCTSAgent():
             if done:
                 print('episode_reward', episode_reward)
                 return episode_reward
+
+    @staticmethod
+    def reconnect_array(obs):
+        new_line_status_array = np.zeros_like(obs.rho)
+        disconnected_lines = np.where(obs.line_status == False)[0]
+        for line in disconnected_lines[::-1]:
+            if not obs.time_before_cooldown_line[line]:
+                line_to_reconnect = line  # reconnection
+                new_line_status_array[line_to_reconnect] = 1
+                break
+        return new_line_status_array
+
+    def array2action(self, total_array, reconnect_array=None):
+        action = self.aspace({'change_bus': total_array[236:413]})
+        action._change_bus_vect = action._change_bus_vect.astype(bool)
+        if reconnect_array is None:
+            return action
+        action.update({'set_line_status': reconnect_array})
+        return action

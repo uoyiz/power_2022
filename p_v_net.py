@@ -63,9 +63,6 @@ class PVNet(nn.Module):
         a = torch.argmax(l - torch.log(-torch.log(u)), dim=-1)
         a_one_hot = F.one_hot(a, num_classes=l.size(-1))  # important!
         neg_log_p = F.cross_entropy(l, a, reduction='none')  # calculate -log(pi)
-
-        vh = self.val_hidden_layer(s)
-        v = self.val_layer(vh)  # state value
         v = v.squeeze(dim=1)
         return a, v, neg_log_p, l
 
@@ -75,6 +72,11 @@ class PolicyValueNet():
         # warm start from Junior Student
         self.use_gpu = False
         self.l2_const = 1e-4  # coef of l2 penalty
+        self.chosen = list(range(2, 7)) + list(range(7, 73)) + list(range(73, 184)) + list(range(184, 656))
+        self.chosen += list(range(656, 715)) + list(range(715, 774)) + list(range(774, 833)) + list(range(833, 1010))
+        self.chosen += list(range(1010, 1069)) + list(range(1069, 1105)) + list(range(1105, 1164)) + list(
+            range(1164, 1223))
+        self.chosen = np.asarray(self.chosen, dtype=np.int32) - 1  # (1221,)
         # the policy value net module
         if use_gpu:
             self.policy_value_net = PVNet().cuda()
@@ -87,16 +89,17 @@ class PolicyValueNet():
             self.policy_value_net.load_state_dict(net_params)
 
     def policy_value(self, state_batch):
+        state_batch=state_batch.to_vect()[self.chosen]
         if self.use_gpu:
             state_batch = Variable(torch.FloatTensor(state_batch).cuda())
-            _,value,log_act_probs,_  = self.policy_value_net(state_batch)
+            action,value,log_act_probs,_  = self.policy_value_net(state_batch)
             act_probs = np.exp(log_act_probs.data.cpu().numpy())
-            return act_probs, value.data.cpu().numpy()
+            return action,act_probs, value.data.cpu().numpy()
         else:
             state_batch = Variable(torch.FloatTensor(state_batch))
-            _, value, log_act_probs, _ = self.policy_value_net(state_batch)
+            action, value, log_act_probs, _ = self.policy_value_net(state_batch)
             act_probs = np.exp(log_act_probs.data.cpu().numpy())
-            return act_probs, value.data.numpy()
+            return action,act_probs, value.data.numpy()
 
 
 

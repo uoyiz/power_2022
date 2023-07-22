@@ -41,7 +41,17 @@ parser.add_argument("--mcts_dynamic_c_puct", action='store_true', default=False)
 parser.add_argument("--mcts_c_puct_base", type=float, default=19652)
 parser.add_argument("--mcts_c_puct_init", type=float, default=1.25)
 parser.add_argument("--mcts_ucb_add_reward", action='store_true', default=False)
+parser.add_argument("--reward_gamma", type=float, default=0.95)
 
+############################# res record config
+parser.add_argument("--save_model", action='store_true', default=False)
+parser.add_argument("--output_res", action='store_true', default=False)
+parser.add_argument("--load_model", action='store_true', default=False)
+parser.add_argument("--save_model_freq", type=int, default=100)
+parser.add_argument("--output_res_dir", type=str, default='./output_res/')
+parser.add_argument("--load_model_path", type=str, default='./output_res/model/model_492.pth')
+
+parser.add_argument("--total_episodes", type=int, default=10000)
 class TrainPipeline():
     def __init__(self, init_model=None):
         # params of the board and the game
