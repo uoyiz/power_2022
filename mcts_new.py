@@ -31,7 +31,7 @@ def reconnect_array(obs):
 
 
 def array2action(env, total_array, reconnect_array=None):
-    action = env.action_space[0]({'change_bus': total_array[236:413]})
+    action = env.action_space({'change_bus': total_array[236:413]})
     action._change_bus_vect = action._change_bus_vect.astype(bool)
     if reconnect_array is None:
         return action
@@ -347,7 +347,6 @@ class MCTSAgent():
         while True:
             action, action_probs = self.get_action(state, reward, done, test_mode=False, init_state=init_state)
             init_state = False
-            print('action', action)
             # store the data
             all_states.append(state)
             actions_probs.append(action_probs)

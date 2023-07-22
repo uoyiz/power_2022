@@ -57,12 +57,13 @@ class PVNet(nn.Module):
 
         l = self.act_layer(s)  # logits
         p = F.softmax(l, dim=-1)  # probability distribution of actions
-        vh = self.val_hidden_layer(s)
-        v = self.val_layer(vh)  # state value
+
         u = torch.rand_like(l, dtype=torch.float32)
         a = torch.argmax(l - torch.log(-torch.log(u)), dim=-1)
-        a_one_hot = F.one_hot(a, num_classes=l.size(-1))  # important!
-        neg_log_p = F.cross_entropy(l, a, reduction='none')  # calculate -log(pi)
+        # a_one_hot = F.one_hot(a, num_classes=l.size(-1))  # important!
+        # neg_log_p = F.cross_entropy(l, a, reduction='none')  # calculate -log(pi)
+        vh = self.val_hidden_layer(s)
+        v = self.val_layer(vh)  # state value
         return a, v, p, l
 
 
