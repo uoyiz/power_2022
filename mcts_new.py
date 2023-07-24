@@ -186,7 +186,7 @@ class MCTS(object):
                                                                                                            np.zeros(
                                                                                                                494),
                                                                                                            self.reconnect_array(
-                                                                                                               state))
+                                                                                        state))
             state, reward, done, info = env.step(action_array)
         # Evaluate the leaf using a network which outputs a list of
         # (action, probability) tuples p and also a score v
