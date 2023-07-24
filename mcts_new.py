@@ -181,12 +181,7 @@ class MCTS(object):
             # Greedily select next move.
             # action, node = node.select(self._c_puct)
             action, node = self.my_select_child(node, min_max_stats)
-
-            action_array = array2action(env, self.actions[action]) if action is not None else array2action(env,
-                                                                                                           np.zeros(
-                                                                                                               494),
-                                                                                                           self.reconnect_array(
-                                                                                        state))
+            action_array = array2action(env, self.actions[action]) if action is not None else array2action(env,np.zeros(494),self.reconnect_array(state))
             state, reward, done, info = env.step(action_array)
         # Evaluate the leaf using a network which outputs a list of
         # (action, probability) tuples p and also a score v
