@@ -54,10 +54,8 @@ class PVNet(nn.Module):
         s = self.layer2(s)
         s = self.layer3(s)
         s = self.layer4(s)
-
         l = self.act_layer(s)  # logits
         p = F.softmax(l, dim=-1)  # probability distribution of actions
-
         u = torch.rand_like(l, dtype=torch.float32)
         a = torch.argmax(l - torch.log(-torch.log(u)), dim=-1)
         # a_one_hot = F.one_hot(a, num_classes=l.size(-1))  # important!
@@ -122,9 +120,13 @@ class PolicyValueNet():
         # forward
         _,value,log_act_probs,_   = self.policy_value_net(batch_states)
         value_loss = F.mse_loss(value, batch_rewards)  # Mean Squared Error for value loss
-        policy_loss = torch.mean(torch.sum(batch_actions_probs * torch.log(batch_actions_probs), dim=1))
+        policy_loss = -torch.mean(torch.sum(batch_actions_probs * torch.log(log_act_probs), dim=1))#todo
         entropy = torch.mean(torch.sum(torch.exp(batch_actions_probs) * batch_actions_probs, dim=1))
         loss = value_loss + policy_loss
+        print("loss",loss)
+        print("value_loss",value_loss)
+        print("policy_loss",policy_loss)
+        print("entropy",entropy)
         loss.backward()
         self.optimizer.step()
         # calc policy entropy, for monitoring only
