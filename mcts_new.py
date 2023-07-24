@@ -214,7 +214,7 @@ class MCTS(object):
         # calc the move probabilities based on visit counts at the root node
         act_visits = [(act, node._n_visits) for act, node in self._root._children.items()]
         acts, visits = zip(*act_visits)
-        act_probs = F.softmax(1.0 / temp * np.log(np.array(visits) + 1e-10))
+        act_probs = softmax(1.0 / temp * np.log(np.array(visits) + 1e-10))
 
         return acts, act_probs
 
