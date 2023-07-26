@@ -226,7 +226,7 @@ class MCTS(object):
     def my_select_child(self, node, min_max_stats):
         def my_get_ucb(sub_node):
             ############## calculate value
-            sub_node._Q = sub_node._R + self.gamma * sub_node._V \
+            sub_node._V = sub_node._R + self.gamma * sub_node._V \
                 if not self.config.mcts_node_value_normal else \
                 sub_node._R + self.gamma * min_max_stats.normalize(sub_node._V)
             ############## calculate visit
@@ -237,8 +237,7 @@ class MCTS(object):
             sub_node._U = (_c_puct * sub_node._P *
                            np.sqrt(sub_node._parent._n_visits) / (1 + sub_node._n_visits))
 
-            return sub_node._Q + sub_node._U
-
+            return sub_node._V + sub_node._U
         return max(node._children.items(), key=lambda act_node: my_get_ucb(act_node[1]))
 
     def __str__(self):

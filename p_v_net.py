@@ -22,15 +22,12 @@ class PVNet(nn.Module):
         super(PVNet, self).__init__()
         n_cell = 1221
         initializer = torch.nn.init.orthogonal_
-
         self.layer1 = nn.Linear(in_features=n_cell, out_features=n_cell)
         initializer(self.layer1.weight)
         self.layer1.activation = nn.ReLU()
-
         self.layer2 = nn.Linear(in_features=n_cell, out_features=n_cell)
         initializer(self.layer2.weight)
         self.layer2.activation = nn.ReLU()
-
         self.layer3 = nn.Linear(in_features=n_cell, out_features=n_cell)
         initializer(self.layer3.weight)
         self.layer3.activation = nn.ReLU()
@@ -121,7 +118,7 @@ class PolicyValueNet():
         _,value,log_act_probs,_   = self.policy_value_net(batch_states)
         value_loss = F.mse_loss(value, batch_rewards)  # Mean Squared Error for value loss
         policy_loss = -torch.mean(torch.sum(batch_actions_probs * torch.log(log_act_probs), dim=1))#todo
-        entropy = torch.mean(torch.sum(torch.exp(batch_actions_probs) * batch_actions_probs, dim=1))
+        entropy = torch.mean(torch.sum(torch.exp(log_act_probs) * log_act_probs, dim=1))
         loss = value_loss + policy_loss
         print("loss",loss)
         print("value_loss",value_loss)
