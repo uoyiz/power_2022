@@ -20,13 +20,19 @@ from p_v_net import PolicyValueNet
 
 
 def reconnect_array(obs):
+
     new_line_status_array = np.zeros_like(obs.rho)
+    #new_line_status_array 设置为全1
+    new_line_status_array[:] = 1
     disconnected_lines = np.where(obs.line_status == False)[0]
+    print(obs.line_status)
     for line in disconnected_lines[::-1]:
         if not obs.time_before_cooldown_line[line]:
             line_to_reconnect = line  # reconnection
             new_line_status_array[line_to_reconnect] = 1
             break
+    #将new_line_status_array转换为int类型
+    new_line_status_array = new_line_status_array.astype(int)
     return new_line_status_array
 
 
@@ -200,7 +206,7 @@ class MCTS(object):
         # for the current player.
         while (state.rho.max() < 0.98):
             # skip action
-            action_array = array2action(array2action(env,np.zeros(494),reconnect_array(state)))
+            action_array = array2action(env,np.zeros(494),reconnect_array(state))
             state, reward, done, info = env.step(action_array)
         actions, action_probs, leaf_value = self._policy(state)
         step=state.current_step-node.step
