@@ -72,8 +72,10 @@ class TreeNode(object):
         self._U = 0
         self._P = prior_p
         self._R = 0
+        self.max_step=0
+        self.step=0
 
-    def expand(self, actions, probs, reward, done):
+    def expand(self,  probs, reward,step,done):
         """Expand tree by creating new children.
         action_priors: a list of tuples of actions and their prior probability
             according to the policy function.
@@ -90,7 +92,10 @@ class TreeNode(object):
             for i in range(len(probs)):
                 if i not in self._children:
                     self._children[i] = TreeNode(self, probs[i])
+                    self._children[i].step = step
+                    self._children[i].max_step = self.step
         self._R = reward
+
 
     def select(self, c_puct):
         """Select action among children that gives maximum action value Q
@@ -100,13 +105,14 @@ class TreeNode(object):
         return max(self._children.items(),
                    key=lambda act_node: act_node[1].get_value(c_puct))
 
-    def update(self, leaf_value):
+    def update(self, leaf_value,max_step):
         """Update node values from leaf evaluation.
         leaf_value: the value of subtree evaluation from the current player's
             perspective.
         """
         # Count visit.
         self._n_visits += 1
+        self.max_step=max(self.max_step,max_step)
         # Update Q, a running average of values for all visits.
         self._V += 1.0 * (leaf_value - self._V) / self._n_visits
 
@@ -118,13 +124,13 @@ class TreeNode(object):
             self._parent.update_recursive(-leaf_value)
         self.update(leaf_value)
 
-    def update_dense_recursive(self, now_value, gamma, min_max_stats):
+    def update_dense_recursive(self, now_value, gamma, min_max_stats,max_step):
         """Like a call to update(), but applied recursively for all ancestors.
         """
         # If it is not root, this node's parent should be updated first.
         if self._parent:
-            self._parent.update_dense_recursive(self._R + gamma * now_value, gamma, min_max_stats)
-        self.update(now_value)
+            self._parent.update_dense_recursive(self._R + gamma * now_value, gamma, min_max_stats,max_step)
+        self.update(now_value,max_step)
         min_max_stats.update(self._V)
 
     def get_value(self, c_puct):
@@ -160,6 +166,8 @@ class MCTS(object):
             converges to the maximum-value policy. A higher value means
             relying on the prior more.
         """
+        self.max_step = 0
+        self.cnt_t_stop = 0
         self.actions = np.load("actions_space.npz")["action_space"]
         self.config = config
         self._root = TreeNode(None, 1.0)
@@ -168,6 +176,8 @@ class MCTS(object):
         self._n_playout = n_playout
         ################# add config for dense reward mcts
         self.gamma = gamma
+        self.tstop=config.t_stopping
+        self.tskip=config.t_skipped
 
     def _playout(self, state, reward, done, env, min_max_stats):
         """Run a single playout from the root to the leaf, getting a value at
@@ -175,6 +185,7 @@ class MCTS(object):
         State is modified in-place, so a copy must be provided.
         """
         node = self._root
+        cur_step=state.current_step
         while True:
             if node.is_leaf():
                 break
@@ -183,15 +194,25 @@ class MCTS(object):
             action, node = self.my_select_child(node, min_max_stats)
             action_array = array2action(env, self.actions[action]) if action is not None else array2action(env,np.zeros(494),self.reconnect_array(state))
             state, reward, done, info = env.step(action_array)
+
         # Evaluate the leaf using a network which outputs a list of
         # (action, probability) tuples p and also a score v
         # for the current player.
+        while (state.rho.max() < 0.98):
+            # skip action
+            action_array = array2action(env, self.actions[action]) if action is not None else array2action(env,np.zeros(494),self.reconnect_array(state))
+            state, reward, done, info = env.step(action_array)
         actions, action_probs, leaf_value = self._policy(state)
+        step=state.current_step-node.step
+        self.max_step=max(self.max_step,state.current_step)
+        if(step>self.tskip):
+            self.cnt_t_stop+=1
         # change last node value to value predict if not reach the leaf node
         leaf_value = 0.0 if done else leaf_value
         # and then expand child tree
-        node.expand(actions, action_probs, reward=
-        reward, done=done)
+        node.expand(action_probs, reward=
+        reward,step=step,done=done)
+        print("new node value", leaf_value)
         # Update value and visit count of nodes in this traversal.
         node.update_dense_recursive(leaf_value, self.gamma, min_max_stats)
 
@@ -206,10 +227,14 @@ class MCTS(object):
             env_copy = copy.deepcopy(env)
             # print('play_time', n)
             self._playout(state, reward, done, env_copy, min_max_stats)
+            if(self.cnt_t_stop>=self.tstop):
+                break
+            if(self.max_step>=2016):
+                break
         # calc the move probabilities based on visit counts at the root node
-        act_visits = [(act, node._n_visits) for act, node in self._root._children.items()]
-        acts, visits = zip(*act_visits)
-        act_probs = softmax(1.0 / temp * np.log(np.array(visits) + 1e-10))
+        act_step = [(act, node.max_step) for act, node in self._root._children.items()]
+        acts, max_steps = zip(*act_step)
+        act_probs = softmax(1.0 / temp * np.log(np.array(max_steps) + 1e-10))
 
         return acts, act_probs
 
@@ -366,7 +391,7 @@ class MCTSAgent():
 
     def start_play_game_evaluate(self):
         """start a game for eval"""
-        state, reward, done = self.env.reset(choose_graph_from_list(self.graphs)), 0.0, False
+        state, reward, done = self.env.reset(), 0.0, False
         episode_reward = 0.
         init_state = True
         while True:

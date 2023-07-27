@@ -52,6 +52,8 @@ parser.add_argument("--output_res_dir", type=str, default='./output_res/')
 parser.add_argument("--load_model_path", type=str, default='./output_res/model/model_492.pth')
 
 parser.add_argument("--total_episodes", type=int, default=10000)
+parser.add_argument("--t_skipped", type=int, default=50)
+parser.add_argument("--t_stopping", type=int, default=12)
 class TrainPipeline():
     def __init__(self, init_model=None):
         # params of the board and the game
