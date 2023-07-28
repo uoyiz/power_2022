@@ -26,6 +26,7 @@ def vect(state):
         range(1164, 1223))
     chosen = np.asarray(chosen, dtype=np.int32) - 1  # (1221,)
     state = state.to_vect()[chosen]
+    return state
 def reconnect_array(obs):
 
     new_line_status_array = np.zeros_like(obs.rho)
@@ -217,6 +218,7 @@ class MCTS(object):
             # skip action
             action_array = array2action(env,np.zeros(494),reconnect_array(state))
             state, reward, done, info = env.step(action_array)
+        print(vect(state))
         actions, action_probs, leaf_value = self._policy(vect(state))
         step=state.current_step-node.step
         self.max_step=max(self.max_step,state.current_step)
