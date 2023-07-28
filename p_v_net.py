@@ -84,7 +84,6 @@ class PolicyValueNet():
             self.policy_value_net.load_state_dict(net_params)
 
     def policy_value(self, state_batch):
-        state_batch=state_batch.to_vect()[self.chosen]
         if self.use_gpu:
             state_batch = Variable(torch.FloatTensor(state_batch).cuda())
             action,value,log_act_probs,_  = self.policy_value_net(state_batch)

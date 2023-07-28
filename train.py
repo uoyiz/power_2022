@@ -54,6 +54,10 @@ parser.add_argument("--load_model_path", type=str, default='./output_res/model/m
 parser.add_argument("--total_episodes", type=int, default=10000)
 parser.add_argument("--t_skipped", type=int, default=50)
 parser.add_argument("--t_stopping", type=int, default=12)
+# add_eval_stage
+parser.add_argument("--add_eval_stage", action='store_true', default=False)
+# eval_freq_in_train
+parser.add_argument("--eval_freq_in_train", type=int, default=100)
 class TrainPipeline():
     def __init__(self, init_model=None):
         # params of the board and the game

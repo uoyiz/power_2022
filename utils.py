@@ -132,12 +132,18 @@ class BatchBuffer:
         self.all_rewards = []
         # pointer
         self.step = 0
+        self.chosen = list(range(2, 7)) + list(range(7, 73)) + list(range(73, 184)) + list(range(184, 656))
+        self.chosen += list(range(656, 715)) + list(range(715, 774)) + list(range(774, 833)) + list(range(833, 1010))
+        self.chosen += list(range(1010, 1069)) + list(range(1069, 1105)) + list(range(1105, 1164)) + list(
+            range(1164, 1223))
+        self.chosen = np.asarray(self.chosen, dtype=np.int32) - 1  # (1221,)
 
     def get_buffer_size(self):
         return len(self.all_obs)
 
     def insert_all_data(self, all_states, all_actions_probs, all_rewards):
         for state, action_prob, reward in zip(all_states, all_actions_probs, all_rewards):
+            state = state.to_vect()[self.chosen]
             if len(self.all_obs) >= self.size:
                 self.all_obs[self.step] = state
                 self.all_actions_probs[self.step] = action_prob
@@ -150,6 +156,7 @@ class BatchBuffer:
 
     def sample(self, batch_size):
         idxes = np.random.choice(len(self.all_obs), batch_size, replace=False)
+        print(self.all_obs[0].shape)
         # split all obs into different types
         batch_states = torch.from_numpy(np.array(
             [self.all_obs[i] for i in idxes])).to(dtype=torch.float32, device=self.device)

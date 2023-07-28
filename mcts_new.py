@@ -19,13 +19,20 @@ from utils import eliminate_orphan_node, load_graph, load_all_graphs, softmax, p
 from p_v_net import PolicyValueNet
 
 
+def vect(state):
+    chosen = list(range(2, 7)) + list(range(7, 73)) + list(range(73, 184)) + list(range(184, 656))
+    chosen += list(range(656, 715)) + list(range(715, 774)) + list(range(774, 833)) + list(range(833, 1010))
+    chosen += list(range(1010, 1069)) + list(range(1069, 1105)) + list(range(1105, 1164)) + list(
+        range(1164, 1223))
+    chosen = np.asarray(chosen, dtype=np.int32) - 1  # (1221,)
+    state = state.to_vect()[chosen]
 def reconnect_array(obs):
 
     new_line_status_array = np.zeros_like(obs.rho)
     #new_line_status_array 设置为全1
     new_line_status_array[:] = 1
     disconnected_lines = np.where(obs.line_status == False)[0]
-    print(obs.line_status)
+
     for line in disconnected_lines[::-1]:
         if not obs.time_before_cooldown_line[line]:
             line_to_reconnect = line  # reconnection
@@ -201,14 +208,16 @@ class MCTS(object):
             action_array = array2action(env, self.actions[action]) if action is not None else array2action(env,np.zeros(494),reconnect_array(state))
             state, reward, done, info = env.step(action_array)
 
+
         # Evaluate the leaf using a network which outputs a list of
         # (action, probability) tuples p and also a score v
         # for the current player.
         while (state.rho.max() < 0.98):
+            # print("now_step",state.current_step)
             # skip action
             action_array = array2action(env,np.zeros(494),reconnect_array(state))
             state, reward, done, info = env.step(action_array)
-        actions, action_probs, leaf_value = self._policy(state)
+        actions, action_probs, leaf_value = self._policy(vect(state))
         step=state.current_step-node.step
         self.max_step=max(self.max_step,state.current_step)
         if(step>self.tskip):
@@ -218,9 +227,9 @@ class MCTS(object):
         # and then expand child tree
         node.expand(action_probs, reward=
         reward,step=step,done=done)
-        print("new node value", leaf_value)
+        # print("new node value", leaf_value)
         # Update value and visit count of nodes in this traversal.
-        node.update_dense_recursive(leaf_value, self.gamma, min_max_stats)
+        node.update_dense_recursive(leaf_value, self.gamma, min_max_stats,state.current_step)
 
     def get_move_probs(self, state, reward, done, env, min_max_stats, temp=1e-3):
         """Run all playouts sequentially and return the available actions and
@@ -312,6 +321,8 @@ class MCTSAgent():
         self.min_max_stats = None
         self.actions = self.mcts.actions
 
+
+
     def save_model(self, training_episode):
         torch.save({
             'policy_value_net': self.policy_value_net.state_dict(),
@@ -376,7 +387,7 @@ class MCTSAgent():
             actions_probs.append(action_probs)
             # perform a remove action
             action_array = array2action(self.env, self.actions[action]) if action is not None else array2action(
-                self.env, np.zeros(494), self.reconnect_array(state))  # action is None means no available nodes
+                self.env, np.zeros(494), reconnect_array(state))  # action is None means no available nodes
             state, reward, done, info = self.env.step(action_array)
             # store the data
             all_rewards.append(
@@ -401,7 +412,7 @@ class MCTSAgent():
         episode_reward = 0.
         init_state = True
         while True:
-            action = self.get_action(state, reward, done, test_mode=True, init_state=init_state)
+            action = self.get_action(vect(state), reward, done, test_mode=True, init_state=init_state)
             init_state = False
             # perform a remove action
             state, reward, done, info = self.env.step(action)
@@ -495,7 +506,7 @@ class MCTSAgent():
             print("batch i:{}, episode_reward:{}".format(i + 1, train_episode_reward))
             all_train_episode_reward.append(train_episode_reward)
             ###################### update network
-            # print('self.data_buffer.get_buffer_size()', self.data_buffer.get_buffer_size())
+            print('self.data_buffer.get_buffer_size()', self.data_buffer.get_buffer_size())
             if self.data_buffer.get_buffer_size() >= self.config.batch_size:
                 all_value_loss, all_policy_loss, all_entropy = self.policy_update()
                 self.output_res({
@@ -527,7 +538,7 @@ class MCTSAgent():
             self.output_res({'connectivity': state['connectivity'], }, step)
             step += 1
             # get action from tree-search
-            action = self.get_action(state, reward, done, test_mode=True, init_state=init_state)
+            action = self.get_action(vect(state), reward, done, test_mode=True, init_state=init_state)
             init_state = False
             # perform a remove action
             state, reward, done, info = self.env.step(action)
