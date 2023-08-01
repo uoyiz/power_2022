@@ -390,15 +390,15 @@ class MCTSAgent():
             action_array = array2action(self.env, self.actions[action]) if action is not None else array2action(
                 self.env, np.zeros(494), reconnect_array(state))  # action is None means no available nodes
             state, reward, done, info = self.env.step(action_array)
-
             # store the data
             all_rewards.append(
                 reward)
             train_episode_reward += reward
+            # 下一个状态的reward加上下一个状态的值函数估计
             _,_,value=self.policy_value_net.policy_value(vect(state))
             print(value)
             td_target=reward+self.config.reward_gamma*value
-            self.policy_value_net.update_td(state,td_target,self.config.learning_rate * self.lr_multiplier)
+            self.policy_value_net.update_td(vect(state),action_probs,td_target,self.config.learning_rate * self.lr_multiplier)
             print("td_target",td_target)
             if done:
                 # reset MCTS root node
