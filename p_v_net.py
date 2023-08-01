@@ -96,7 +96,7 @@ class PolicyValueNet():
             return action,act_probs, value.data.numpy()
 
 
-    def update_td(self,state,td_target,lr):
+    def update_td(self,state,act_probs,td_target,lr):
         """update the policy-value net"""
         # wrap in Variable
         if self.use_gpu:
@@ -110,10 +110,18 @@ class PolicyValueNet():
         # set learning rate
         set_learning_rate(self.optimizer,lr)
         # forward
-        _, value, _, _ = self.policy_value_net(state)
+        _, value, log_act_probs, _ = self.policy_value_net(state)
         # backward and optimize
         value_loss = nn.MSELoss()(value.view(-1), td_target)
         value_loss.backward()
+        policy_loss = -torch.mean(torch.sum(act_probs * torch.log(log_act_probs), dim=1))  # todo
+        entropy = torch.mean(torch.sum(torch.exp(log_act_probs) * log_act_probs, dim=1))
+        loss = value_loss + policy_loss
+        print("loss", loss)
+        print("value_loss", value_loss)
+        print("policy_loss", policy_loss)
+        print("entropy", entropy)
+        loss.backward()
         self.optimizer.step()
 
     def train_step(self, batch_states, batch_actions_probs, batch_rewards, lr):
