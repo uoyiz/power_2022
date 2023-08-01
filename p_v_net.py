@@ -96,6 +96,25 @@ class PolicyValueNet():
             return action,act_probs, value.data.numpy()
 
 
+    def update_td(self,state,td_target,lr):
+        """update the policy-value net"""
+        # wrap in Variable
+        if self.use_gpu:
+            state = Variable(torch.FloatTensor(state).cuda())
+            td_target = Variable(torch.FloatTensor(td_target).cuda())
+        else:
+            state = Variable(torch.FloatTensor(state))
+            td_target = Variable(torch.FloatTensor(td_target))
+        # zero the parameter gradients
+        self.optimizer.zero_grad()
+        # set learning rate
+        set_learning_rate(self.optimizer,lr)
+        # forward
+        _, value, _, _ = self.policy_value_net(state)
+        # backward and optimize
+        value_loss = nn.MSELoss()(value.view(-1), td_target)
+        value_loss.backward()
+        self.optimizer.step()
 
     def train_step(self, batch_states, batch_actions_probs, batch_rewards, lr):
         """perform a training step"""

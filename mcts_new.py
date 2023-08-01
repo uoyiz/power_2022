@@ -199,7 +199,6 @@ class MCTS(object):
         State is modified in-place, so a copy must be provided.
         """
         node = self._root
-        cur_step=state.current_step
         while True:
             if node.is_leaf():
                 break
@@ -208,8 +207,7 @@ class MCTS(object):
             action, node = self.my_select_child(node, min_max_stats)
             action_array = array2action(env, self.actions[action]) if action is not None else array2action(env,np.zeros(494),reconnect_array(state))
             state, reward, done, info = env.step(action_array)
-
-
+        #     lr=self.config.learning_rate * self.lr_multiplier
         # Evaluate the leaf using a network which outputs a list of
         # (action, probability) tuples p and also a score v
         # for the current player.
@@ -218,8 +216,9 @@ class MCTS(object):
             # skip action
             action_array = array2action(env,np.zeros(494),reconnect_array(state))
             state, reward, done, info = env.step(action_array)
-        print(vect(state))
+
         actions, action_probs, leaf_value = self._policy(vect(state))
+
         step=state.current_step-node.step
         self.max_step=max(self.max_step,state.current_step)
         if(step>self.tskip):
@@ -391,10 +390,16 @@ class MCTSAgent():
             action_array = array2action(self.env, self.actions[action]) if action is not None else array2action(
                 self.env, np.zeros(494), reconnect_array(state))  # action is None means no available nodes
             state, reward, done, info = self.env.step(action_array)
+
             # store the data
             all_rewards.append(
                 reward)
             train_episode_reward += reward
+            _,_,value=self.policy_value_net.policy_value(vect(state))
+            print(value)
+            td_target=reward+self.config.reward_gamma*value
+            self.policy_value_net.update_td(state,td_target,self.config.learning_rate * self.lr_multiplier)
+            print("td_target",td_target)
             if done:
                 # reset MCTS root node
                 self.reset_player()
@@ -456,7 +461,7 @@ class MCTSAgent():
         # print('----------------------------')
         # print('batch_features', batch_features.shape)
         # print('batch_adjacency_matrixs', batch_adjacency_matrixs.shape)
-        old_probs, old_v = self.policy_value_net.policy_value(batch_states)
+        _,old_probs, old_v = self.policy_value_net.policy_value(batch_states)
         all_value_loss, all_policy_loss, all_entropy = [], [], []
         for i in range(self.config.mcts_update_epochs):
             value_loss, policy_loss, entropy = self.policy_value_net.train_step(
@@ -466,7 +471,7 @@ class MCTSAgent():
             all_value_loss.append(value_loss)
             all_policy_loss.append(policy_loss)
             all_entropy.append(entropy)
-            new_probs, new_v = self.policy_value_net.policy_value(batch_states)
+            _,new_probs, new_v = self.policy_value_net.policy_value(batch_states)
             kl = np.mean(np.sum(old_probs * (
                     np.log(old_probs + 1e-10) - np.log(new_probs + 1e-10)), axis=1))
             if kl > self.kl_targ * 4:  # early stopping if D_KL diverges badly
@@ -508,14 +513,14 @@ class MCTSAgent():
             print("batch i:{}, episode_reward:{}".format(i + 1, train_episode_reward))
             all_train_episode_reward.append(train_episode_reward)
             ###################### update network
-            print('self.data_buffer.get_buffer_size()', self.data_buffer.get_buffer_size())
-            if self.data_buffer.get_buffer_size() >= self.config.batch_size:
-                all_value_loss, all_policy_loss, all_entropy = self.policy_update()
-                self.output_res({
-                    'all_value_loss': all_value_loss, 'all_policy_loss': all_policy_loss,
-                    'train_episode_reward': np.mean(all_train_episode_reward),
-                }, i)
-                all_train_episode_reward = []
+            # print('self.data_buffer.get_buffer_size()', self.data_buffer.get_buffer_size())
+            # if self.data_buffer.get_buffer_size() >= self.config.batch_size:
+            #     all_value_loss, all_policy_loss, all_entropy = self.policy_update()
+            #     self.output_res({
+            #         'all_value_loss': all_value_loss, 'all_policy_loss': all_policy_loss,
+            #         'train_episode_reward': np.mean(all_train_episode_reward),
+            #     }, i)
+            #     all_train_episode_reward = []
             ###################### eval model
             if self.config.add_eval_stage and i % self.config.eval_freq_in_train == 0:
                 eval_episode_reward = self.policy_evaluate(n_games=self.config.eval_episodes)

@@ -99,7 +99,7 @@ class TrainPipeline():
 if __name__ == "__main__":
     # set program config
     config = parser.parse_args()
-    config.learn_rate = 2e-3
+    config.learning_rate = 2e-3
     config.lr_multiplier = 1.0  # adaptively adjust the learning rate based on KL
     config.temp = 1.0  # the temperature param
     config.n_playout = 400  # num of simulations for each move
