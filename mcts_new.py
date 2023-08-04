@@ -391,15 +391,15 @@ class MCTSAgent():
                 self.env, np.zeros(494), reconnect_array(state))  # action is None means no available nodes
             state, reward, done, info = self.env.step(action_array)
             # store the data
-            all_rewards.append(
-                reward)
             train_episode_reward += reward
             # 下一个状态的reward加上下一个状态的值函数估计
             _,_,value=self.policy_value_net.policy_value(vect(state))
-            print(value)
+
             td_target=reward+self.config.reward_gamma*value
-            self.policy_value_net.update_td(vect(state),action_probs,td_target,self.config.learning_rate * self.lr_multiplier)
+            # self.policy_value_net.update_td(vect(state),action_probs,td_target,self.config.learning_rate * self.lr_multiplier)
             print("td_target",td_target)
+            all_rewards.append(
+                td_target)
             if done:
                 # reset MCTS root node
                 self.reset_player()
@@ -419,7 +419,7 @@ class MCTSAgent():
         episode_reward = 0.
         init_state = True
         while True:
-            action = self.get_action(vect(state), reward, done, test_mode=True, init_state=init_state)
+            action = self.get_action(state, reward, done, test_mode=True, init_state=init_state)
             init_state = False
             # perform a remove action
             state, reward, done, info = self.env.step(action)
@@ -513,14 +513,14 @@ class MCTSAgent():
             print("batch i:{}, episode_reward:{}".format(i + 1, train_episode_reward))
             all_train_episode_reward.append(train_episode_reward)
             ###################### update network
-            # print('self.data_buffer.get_buffer_size()', self.data_buffer.get_buffer_size())
-            # if self.data_buffer.get_buffer_size() >= self.config.batch_size:
-            #     all_value_loss, all_policy_loss, all_entropy = self.policy_update()
-            #     self.output_res({
-            #         'all_value_loss': all_value_loss, 'all_policy_loss': all_policy_loss,
-            #         'train_episode_reward': np.mean(all_train_episode_reward),
-            #     }, i)
-            #     all_train_episode_reward = []
+            print('self.data_buffer.get_buffer_size()', self.data_buffer.get_buffer_size())
+            if self.data_buffer.get_buffer_size() >= self.config.batch_size:
+                all_value_loss, all_policy_loss, all_entropy = self.policy_update()
+                self.output_res({
+                    'all_value_loss': all_value_loss, 'all_policy_loss': all_policy_loss,
+                    'train_episode_reward': np.mean(all_train_episode_reward),
+                }, i)
+                all_train_episode_reward = []
             ###################### eval model
             if self.config.add_eval_stage and i % self.config.eval_freq_in_train == 0:
                 eval_episode_reward = self.policy_evaluate(n_games=self.config.eval_episodes)
@@ -538,14 +538,14 @@ class MCTSAgent():
     def eval_graph(self):
         if self.config.load_model:
             self.load_model()
-        state, reward, done = self.env.reset(choose_graph_from_list(self.graphs)), 0.0, False
+        state, reward, done = self.env.reset(), 0.0, False
         episode_reward, init_state, step = 0., True, 0
         while True:
             # output step connectivity
             self.output_res({'connectivity': state['connectivity'], }, step)
             step += 1
             # get action from tree-search
-            action = self.get_action(vect(state), reward, done, test_mode=True, init_state=init_state)
+            action = self.get_action(state, reward, done, test_mode=True, init_state=init_state)
             init_state = False
             # perform a remove action
             state, reward, done, info = self.env.step(action)

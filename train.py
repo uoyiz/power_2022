@@ -12,7 +12,7 @@ import random
 import numpy as np
 from p_v_net import PolicyValueNet  # Theano and Lasagne
 from collections import deque
-from mcts_new import MCTS, MCTSAgent
+
 import grid2op
 import os
 import torch
@@ -20,10 +20,61 @@ import argparse
 import networkx as nx
 import matplotlib.pyplot as plt
 from utils import set_seed, get_config_from_env
+from mcts_new import MCTS, MCTSAgent
+from mcts_multi import MCTSMultiAgent
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 parser = argparse.ArgumentParser(description='onpolicy', formatter_class=argparse.RawDescriptionHelpFormatter)
 ############################# algorithm config
+parser.add_argument("--algorithm_name", type=str, default='mcts', choices=["greedy", "dqn", "hie-policy", "mcts", "mcts-multi"])
+parser.add_argument("--connectivity_method", type=str, default='pairwise', choices=["pairwise", "gcc"])
+parser.add_argument("--lower_agent_type", type=str, default='degree_greedy', choices=["degree_greedy", ])
+
+############################# env config
+parser.add_argument("--fix_graph", action='store_true', default=False)
+parser.add_argument("--fix_graph_type", action='store_true', default=False)
+parser.add_argument("--graph_type", type=str, default='barabasi_albert',
+                    choices=["erdos_renyi", "powerlaw", "small-world", "barabasi_albert"])
+parser.add_argument("--multi_env", action='store_true', default=False)
+parser.add_argument("--min_nodes", type=int, default=10)
+parser.add_argument("--max_nodes", type=int, default=50)
+parser.add_argument("--train_with_preload_graph", action='store_true', default=False)
+parser.add_argument("--train_graph_path", type=str, default='./data/data_set_multi_node12/')
+parser.add_argument("--preload_graph_node_num", type=int, default=50)
+parser.add_argument("--diff_nodes_weights", action='store_true', default=False)
+parser.add_argument("--use_weights_features", action='store_true', default=False)
+parser.add_argument("--eliminate_action", action='store_true', default=False)
+parser.add_argument("--early_stop_env", action='store_true', default=False)
+parser.add_argument("--render_graph", action='store_true', default=False)
+
+############################# process trick
+parser.add_argument("--reward_reflect", action='store_true', default=False)
+parser.add_argument("--reward_reflect_neg", action='store_true', default=False)
+parser.add_argument("--reward_scaling", action='store_true', default=False)
+parser.add_argument("--reward_normalization", action='store_true', default=False)
+parser.add_argument("--critic_use_huber_loss", action='store_true', default=False)
+parser.add_argument("--huber_loss_delta", type=float, default=10.0)
+parser.add_argument("--eliminate_orphan_node", action='store_true', default=False)
+
+############################# model config
+parser.add_argument("--graphsage_inner_dim", type=int, default=128)
+parser.add_argument("--graphsage_output_dim", type=int, default=128)
+parser.add_argument("--graphsage_adj_num_samples", type=int, default=10)
+parser.add_argument("--action_embed_dim", type=int, default=128)
+parser.add_argument("--qnetwork_inner_dim", type=int, default=128)
+
+############################# hie-policy config
+parser.add_argument("--attention_embedding_dim", type=int, default=128)
+parser.add_argument("--n_encode_layers", type=int, default=2)
+parser.add_argument("--max_upper_actions_len", type=int, default=114514)
+parser.add_argument("--random_stop_actions", action='store_true', default=False)
+parser.add_argument("--random_stop_eps", type=float, default=0.2)
+parser.add_argument("--stop_eps_decay", action='store_true', default=False)
+parser.add_argument("--stop_eps_decay_rate", type=float, default=0.01)
+parser.add_argument("--stop_eps_decay_freq", type=float, default=100)
+parser.add_argument("--stop_eps_decay_min", type=float, default=0.01)
+
+############################# mcts config
 parser.add_argument("--total_training_steps", type=int, default=20000)
 parser.add_argument('--gcn_hidden_size', default=64, type=int, help='Number of features for each node')
 parser.add_argument('--gcn_dropout', default=0.1, type=float, help='Drop out rate for gcn layers')
@@ -41,7 +92,33 @@ parser.add_argument("--mcts_dynamic_c_puct", action='store_true', default=False)
 parser.add_argument("--mcts_c_puct_base", type=float, default=19652)
 parser.add_argument("--mcts_c_puct_init", type=float, default=1.25)
 parser.add_argument("--mcts_ucb_add_reward", action='store_true', default=False)
+
+############################# mcts-multi config
+parser.add_argument("--mcts_num_actors", type=int, default=10)
+parser.add_argument("--mcts_para_update_freq", type=int, default=20)
+
+############################# hyper parameters config
+parser.add_argument("--learning_rate", type=float, default=5e-3)
+parser.add_argument("--total_episodes", type=int, default=10000)
+parser.add_argument("--memory_capacity", type=int, default=200)
+parser.add_argument("--model_update_freq", type=int, default=50)
+parser.add_argument("--batch_size", type=int, default=32)
+parser.add_argument("--epsilon_greedy_rate", type=float, default=0.9)
+parser.add_argument("--target_q_update_freq", type=int, default=100)
 parser.add_argument("--reward_gamma", type=float, default=0.95)
+parser.add_argument("--actor_learning_rate", type=float, default=5e-3)
+parser.add_argument("--critic_learning_rate", type=float, default=5e-3)
+parser.add_argument("--add_graph_reconstruction_loss", action='store_true', default=False)
+parser.add_argument("--graph_reconstruction_loss_alpha", type=float, default=0.001)
+
+############################# eval config
+parser.add_argument("--eval_mode", action='store_true', default=False)
+parser.add_argument("--eval_episodes", type=int, default=1)
+parser.add_argument("--eval_with_preload_graph", action='store_true', default=False)
+parser.add_argument("--eval_graph_path", type=str, default='./data/graph_250.graphml')
+parser.add_argument("--add_eval_stage", action='store_true', default=False)
+parser.add_argument("--eval_freq_in_train", type=int, default=10)
+parser.add_argument("--eval_with_collapse_graph", action='store_true', default=False)
 
 ############################# res record config
 parser.add_argument("--save_model", action='store_true', default=False)
@@ -51,13 +128,12 @@ parser.add_argument("--save_model_freq", type=int, default=100)
 parser.add_argument("--output_res_dir", type=str, default='./output_res/')
 parser.add_argument("--load_model_path", type=str, default='./output_res/model/model_492.pth')
 
-parser.add_argument("--total_episodes", type=int, default=10000)
 parser.add_argument("--t_skipped", type=int, default=50)
 parser.add_argument("--t_stopping", type=int, default=12)
-# add_eval_stage
-parser.add_argument("--add_eval_stage", action='store_true', default=False)
-# eval_freq_in_train
-parser.add_argument("--eval_freq_in_train", type=int, default=100)
+
+
+#action_space_len
+parser.add_argument("--actions_space_len", type=int, default=314)
 class TrainPipeline():
     def __init__(self, init_model=None):
         # params of the board and the game
@@ -176,9 +252,9 @@ if __name__ == "__main__":
     config.device = 'cpu' if not torch.cuda.is_available() else 'cuda'
     # sey env for training
     env = grid2op.make(dataset="l2rpn_wcci_2022")
-
+    print("make env success")
     # set agent
-    agent = MCTSAgent(config=config, env=env)
+    agent = MCTSMultiAgent(config=config, env=env)
     agent.train()
 
 

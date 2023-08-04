@@ -60,12 +60,18 @@ class PVNet(nn.Module):
         vh = self.val_hidden_layer(s)
         v = self.val_layer(vh)  # state value
         return a, v, p, l
+    def get_weights(self):
+        return {k: v.cpu() for k, v in self.state_dict().items()}
+
+    def set_weights(self, weights):
+        self.load_state_dict(weights)
 
 
 class PolicyValueNet():
-    def __init__(self,model_file=None, use_gpu=False):
+    def __init__(self,config,model_file=None, use_gpu=False):
         # warm start from Junior Student
         self.use_gpu = False
+        self.config=config
         self.l2_const = 1e-4  # coef of l2 penalty
         self.chosen = list(range(2, 7)) + list(range(7, 73)) + list(range(73, 184)) + list(range(184, 656))
         self.chosen += list(range(656, 715)) + list(range(715, 774)) + list(range(774, 833)) + list(range(833, 1010))
@@ -160,3 +166,5 @@ class PolicyValueNet():
 
     def restore_model(self, model_path):
         self.load_state_dict(torch.load(model_path))
+
+
