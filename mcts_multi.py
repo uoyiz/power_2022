@@ -51,7 +51,7 @@ def array2action(env, total_array, reconnect_array=None):
     action._change_bus_vect = action._change_bus_vect.astype(bool)
     if reconnect_array is None:
         return action
-    action.update({'set_line_status': reconnect_array})
+    # action.update({'set_line_status': reconnect_array})
     return action
 
 class MinMaxStats:
@@ -90,7 +90,7 @@ class TreeNode(object):
         self.max_step=0
         self.step=0
 
-    def expand(self,  probs, reward,step,done):
+    def expand(self,  probs, reward,step,done,current_step):
         """Expand tree by creating new children.
         action_priors: a list of tuples of actions and their prior probability
             according to the policy function.
@@ -108,7 +108,7 @@ class TreeNode(object):
                 if i not in self._children:
                     self._children[i] = TreeNode(self, probs[i])
                     self._children[i].step = step
-                    self._children[i].max_step = self.step
+                    self._children[i].max_step = current_step
         self._R = reward
 
 
@@ -200,35 +200,55 @@ class MCTS(object):
         State is modified in-place, so a copy must be provided.
         """
         node = self._root
+        playout_action = []
+        node_step=[]
+        n_visit=[]
         while True:
             if node.is_leaf():
+                ################ test #################
+                # print('playout_action', playout_action)
+                # print('node_sel', node_step)
+                # print('n_visit', n_visit)
+                ################ test #################
                 break
-            # Greedily select next move.
-            # action, node = node.select(self._c_puct)
+                # Greedily select next move.
+                # action, node = node.select(self._c_puct)
             action, node = self.my_select_child(node, min_max_stats)
+            ################ test #################
+            playout_action.append(action)
+            node_step.append(node.max_step)
+            n_visit.append(node._n_visits)
             action_array = array2action(env, self.actions[action]) if action is not None else array2action(env,np.zeros(494),reconnect_array(state))
             state, reward, done, info = env.step(action_array)
+            while(state.current_step<node.step):
+                action_array = array2action(env, np.zeros(494), reconnect_array(state))
+                state, reward, done, info = env.step(action_array)
         #     lr=self.config.learning_rate * self.lr_multiplier
         # Evaluate the leaf using a network which outputs a list of
         # (action, probability) tuples p and also a score v
         # for the current player.
-        while (state.rho.max() < 0.98):
+        while (state.rho.max() < 0.98 and not done):
             # print("now_step",state.current_step)
             # skip action
             action_array = array2action(env,np.zeros(494),reconnect_array(state))
             state, reward, done, info = env.step(action_array)
-
         actions, action_probs, leaf_value = self._policy(vect(state))
 
-        step=state.current_step-node.step
+        step=state.current_step
+        # print("step",step)
         self.max_step=max(self.max_step,state.current_step)
-        if(step>self.tskip):
+        # print("skips:",state.current_step-node.step)
+        if(state.current_step-node.step>self.tskip):
             self.cnt_t_stop+=1
+            # print("cnt_t_stop",self.cnt_t_stop)
         # change last node value to value predict if not reach the leaf node
         leaf_value = 0.0 if done else leaf_value
+        # if(done):
+        #     print("done")
         # and then expand child tree
+        node.step = step
         node.expand(action_probs, reward=
-        reward,step=step,done=done)
+        reward,step=step,done=done,current_step=state.current_step)
         # print("new node value", leaf_value)
         # Update value and visit count of nodes in this traversal.
         node.update_dense_recursive(leaf_value, self.gamma, min_max_stats,state.current_step)
@@ -242,15 +262,31 @@ class MCTS(object):
         # print('------------------ get_move_probs -------------------')
         for n in range(self._n_playout):
             env_copy = copy.deepcopy(env)
+
             # print('play_time', n)
             self._playout(state, reward, done, env_copy, min_max_stats)
+
             if(self.cnt_t_stop>=self.tstop):
                 break
             if(self.max_step>=2016):
                 break
+
         # calc the move probabilities based on visit counts at the root node
-        act_step = [(act, node.max_step) for act, node in self._root._children.items()]
-        acts, max_steps = zip(*act_step)
+        try:
+            act_step = [(act, node.max_step) for act, node in self._root._children.items()]
+            acts, max_steps = zip(*act_step)
+        except:
+            print("error")
+            #存入文件
+            with open("error.txt","w") as f:
+                f.write("error")
+                f.write(str(act_step))
+                f.write(str(self._root._children.items()))
+
+        #如果max——steps中元素均相同，则获取visit
+        if(len(set(max_steps))==1):
+            max_steps=[node._n_visits for act, node in self._root._children.items()]
+        # print(max_steps)
         act_probs = softmax(1.0 / temp * np.log(np.array(max_steps) + 1e-10))
 
         return acts, act_probs
@@ -280,6 +316,7 @@ class MCTS(object):
                            np.sqrt(sub_node._parent._n_visits) / (1 + sub_node._n_visits))
 
             return sub_node._V + sub_node._U
+
         return max(node._children.items(), key=lambda act_node: my_get_ucb(act_node[1]))
 
     def __str__(self):
@@ -355,6 +392,7 @@ class DataWorker(object):
                 cnt=0
                 while True:
                     cnt=cnt+1
+                    print("worker {} step {}".format(self.rank,cnt))
                     ###################### tree search to get an action
                     action, action_probs = self.get_action(state, reward, done, test_mode=False)
                     ###################### store step obs, action
@@ -374,6 +412,10 @@ class DataWorker(object):
                     all_rewards.append(
                         td_target)
                     ###################### reach end of an episode
+                    # print("save{} data".format(ray.get(self.replay_buffer.get_buffer_size.remote())))
+                    # print('process', self.rank, 'train_episode_reward', train_episode_reward, "train_steps",
+                    #       ray.get(self.shared_storage.get_counter.remote()))
+
                     if done:
                         ###################### reset MCTS root node
                         self.reset_player()
@@ -386,15 +428,20 @@ class DataWorker(object):
                         #     all_discount_rewards.append(now_discount_value)
                         # all_discount_rewards.reverse()
                         # # print('process', self.rank, 'all_discount_rewards', all_discount_rewards)
-                        print('process', self.rank, 'train_episode_reward', train_episode_reward)
+                        self.replay_buffer.insert_all_data.remote(all_states, actions_probs, all_rewards)
+                        print("save{} data".format(ray.get(self.replay_buffer.get_buffer_size.remote())))
+                        print('process', self.rank, 'train_episode_reward', train_episode_reward,"train_steps",ray.get(self.shared_storage.get_counter.remote()))
                         break
-                    if cnt>=100:
+
+                    if cnt>=64:
                         self.replay_buffer.insert_all_data.remote(all_states, actions_probs, all_rewards)
                         #clear
                         all_states, actions_probs, all_rewards = [], [], []
                         cnt=0
+                        print("save{} data".format(ray.get(self.replay_buffer.get_buffer_size.remote())))
                 ###################### save episode data to share buffer
                 self.replay_buffer.insert_all_data.remote(all_states, actions_probs, all_rewards)
+                print("save{} data".format(ray.get(self.replay_buffer.get_buffer_size.remote())))
                 ###################### save train_episode_reward to share space
                 self.shared_storage.add_sampler_logs.remote(train_episode_reward)
 
@@ -442,6 +489,7 @@ def play_game(config, model, env,  ep_i, ep_data):
         state, reward, done, info = env.step(action_array )
         episode_reward = episode_reward + reward
         if done:
+
             break
     ep_data[ep_i] = episode_reward
 
@@ -585,11 +633,12 @@ class MCTSMultiAgent():
 
     def policy_update(self, replay_buffer):
         """update the policy-value net"""
-        # self.policy_value_net.train()
+        self.policy_value_net.train()
         batch_states, batch_actions_probs, batch_rewards = ray.get(
             replay_buffer.sample.remote(self.config.batch_size))
-        # print('----------------------------')
-        # print('batch_features', batch_features.shape)
+
+        print('----------------------------')
+        print('batch_states', batch_states.shape)
         # print('batch_adjacency_matrixs', batch_adjacency_matrixs.shape)
         old_probs, old_v = self.policy_value_net.policy_value(batch_states)
         all_value_loss, all_policy_loss, all_entropy = [], [], []
@@ -637,21 +686,22 @@ class MCTSMultiAgent():
         ###################### config data collect process (multi)
         workers = [DataWorker.remote(rank, self.config, storage, replay_buffer)
                    for rank in range(0, self.config.mcts_num_actors)]
-        eval_worker = EvalWorker.remote(config=self.config, shared_storage=storage,
-                                        model_dir=self.save_model_dir)
-
-        workers += [eval_worker]
+        # eval_worker = EvalWorker.remote(config=self.config, shared_storage=storage,
+        #                                 model_dir=self.save_model_dir)
+        #
+        # workers += [eval_worker]
         for worker in workers:
             print("new worker")
             worker.run.remote()
             time.sleep(5)
         ###################### config eval process
-        # eval_worker = EvalWorker.remote(config=self.config, shared_storage=storage,
-        #                                  model_dir=self.save_model_dir)
-        # eval_worker.run.remote()
-        # workers += [eval_worker]
+        eval_worker = EvalWorker.remote(config=self.config, shared_storage=storage,
+                                         model_dir=self.save_model_dir)
+        eval_worker.run.remote()
+        workers += [eval_worker]
         ###################### wait for enough buffer data
         while ray.get(replay_buffer.get_buffer_size.remote()) < self.config.batch_size:
+            # print('wait for enough buffer data', ray.get(replay_buffer.get_buffer_size.remote()))
             time.sleep(10)
         ###################### run training pipeline
         for step_count in range(self.config.total_training_steps):

@@ -94,7 +94,7 @@ parser.add_argument("--mcts_c_puct_init", type=float, default=1.25)
 parser.add_argument("--mcts_ucb_add_reward", action='store_true', default=False)
 
 ############################# mcts-multi config
-parser.add_argument("--mcts_num_actors", type=int, default=10)
+parser.add_argument("--mcts_num_actors", type=int, default=25)
 parser.add_argument("--mcts_para_update_freq", type=int, default=20)
 
 ############################# hyper parameters config
@@ -128,8 +128,8 @@ parser.add_argument("--save_model_freq", type=int, default=100)
 parser.add_argument("--output_res_dir", type=str, default='./output_res/')
 parser.add_argument("--load_model_path", type=str, default='./output_res/model/model_492.pth')
 
-parser.add_argument("--t_skipped", type=int, default=50)
-parser.add_argument("--t_stopping", type=int, default=12)
+parser.add_argument("--t_skipped", type=int, default=100)
+parser.add_argument("--t_stopping", type=int, default=20)
 
 
 #action_space_len
